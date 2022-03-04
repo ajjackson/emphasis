@@ -1,5 +1,6 @@
 #include "daisysp.h"
 #include "kxmx_bluemchen.h"
+#include "cookbook-biquad.h"
 #include <string.h>
 
 using namespace kxmx;
@@ -8,8 +9,8 @@ using namespace daisysp;
 
 Bluemchen bluemchen;
 
-Svf filt_l;
-Svf filt_r;
+CookbookBiquad filt_l;
+CookbookBiquad filt_r;
 
 float cutoff = 5000.;
 float emphasis = 0.;
@@ -64,11 +65,12 @@ void UpdateControls()
   cutoff = exp(fclamp(knob1.Value() + cv1.Value(), 2.f, 10.f));
   emphasis = fclamp(knob2.Value() + cv2.Value(), -18.f, 18.f);
 
-  scale_l = 2. * (pow10f(emphasis / 20) - 1);
-  scale_r = 2. * (pow10f(-emphasis / 20) - 1);
-
-  filt_l.SetFreq(cutoff);
-  filt_r.SetFreq(cutoff);  
+  filt_l.SetFrequency(cutoff);
+  filt_l.SetGain(emphasis);
+  filt_l.CalcCoefficients();
+  filt_r.SetFrequency(cutoff);
+  filt_r.SetGain(-emphasis);
+  filt_r.CalcCoefficients();
 }
 
 void AudioCallback(AudioHandle::InputBuffer in,
@@ -81,11 +83,8 @@ void AudioCallback(AudioHandle::InputBuffer in,
       float sig_l = in[1][i];
       float sig_r = in[0][i];
 
-      filt_l.Process(sig_l);
-      filt_r.Process(sig_r);
-
-      out[0][i] = sig_l + scale_l * filt_l.Band();
-      out[1][i] = sig_r + scale_r * filt_r.Band();
+      out[0][i] = filt_l.Process(sig_l);
+      out[1][i] = filt_r.Process(sig_r);
     }
 }
 
@@ -104,14 +103,14 @@ int main(void)
   cv2.Init(bluemchen.controls[bluemchen.CTRL_4], -18.f, 18.f, Parameter::LINEAR);
 
   filt_l.Init(bluemchen.AudioSampleRate());
-  filt_l.SetFreq(cutoff);
-  filt_l.SetRes(0.0f);
-  filt_l.SetDrive(2.5f);
+  filt_l.SetFrequency(cutoff);
+  filt_l.SetResonance(0.8f);
+  filt_l.SetGain(0.f);
 
   filt_r.Init(bluemchen.AudioSampleRate());
-  filt_r.SetFreq(cutoff);
-  filt_r.SetRes(0.0f);
-  filt_r.SetDrive(2.5f);
+  filt_r.SetFrequency(cutoff);
+  filt_r.SetResonance(0.8f);
+  filt_r.SetGain(0.f);
 
   bluemchen.StartAudio(AudioCallback);
 
