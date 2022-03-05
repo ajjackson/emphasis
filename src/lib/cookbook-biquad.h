@@ -10,7 +10,7 @@ to work for me.
 class CookbookBiquad
 {
 private:
-  int magic;
+  int mode_;
   float two_pi_d_sr_;
   float frequency_, gain_dB_, resonance_;
   float a_[3], b_[3], x_[3], y_[3];
@@ -20,15 +20,25 @@ public:
   CookbookBiquad() {}
   ~CookbookBiquad() {}
 
+  enum mode_indices {peak, lowShelf, highShelf};
+  static const int n_modes = 3;
+  static const char* mode_text[];
+
   void Init(float sample_rate);
 
   /* Process one audio sample */
   float Process(float in);
 
-  /* Recalculate biquad coefficients using current values of frequency, q etc. */
+  /* Recalculate biquad coefficients using current mode, frequency, q etc. */
   void CalcCoefficients();
 
-/* Set target frequency in Hz */
+  /* Set filter type */
+  inline void SetMode(int mode) {
+    mode_ = mode;
+    param_changed_ = true;
+  };
+
+  /* Set target frequency in Hz */
   inline void SetFrequency(float frequency) {
     frequency_ = frequency;
     param_changed_ = true;

@@ -13,9 +13,10 @@ to work for me.
 
 **/
 
-void CookbookBiquad::Init(float sample_rate) {
+const char* CookbookBiquad::mode_text[3] = { "PEAK", "LOW-SHELF" , "HIGH-SHELF" };
 
-  magic = 1;
+void CookbookBiquad::Init(float sample_rate) {
+  mode_ = 0;
   param_changed_ = true;
   two_pi_d_sr_ = 2. * PI_F / sample_rate;
 
@@ -55,17 +56,45 @@ float CookbookBiquad::Process(float in) {
 void CookbookBiquad::CalcCoefficients() {
   if ( param_changed_ ) {
     // RBJ Cookbook recipe for peaking EQ filter
+    float two_alpha_sqrt_amp;
     float amp = pow10f(gain_dB_ / 40.f);
     float omega0 = frequency_ * two_pi_d_sr_;
     float cos_omega0 = cosf(omega0);
     float alpha = sinf(omega0) / (2 * resonance_);
 
-    b_[0] = 1 + alpha * amp;
-    b_[1] = -2 * cos_omega0;
-    b_[2] = 2 - b_[0]; // = 1 - alpha . A
-    a_[0] = 1 + alpha / amp;
-    a_[1] = b_[1];
-    a_[2] = 2 - a_[0]; // = 1 - alpha / A
+    switch (mode_) {
+    case peak :
+      b_[0] = 1 + alpha * amp;
+      b_[1] = -2 * cos_omega0;
+      b_[2] = 2 - b_[0]; // = 1 - alpha . A
+      a_[0] = 1 + alpha / amp;
+      a_[1] = b_[1];
+      a_[2] = 2 - a_[0]; // = 1 - alpha / A
+      break;
+
+    case lowShelf :
+      two_alpha_sqrt_amp = 2. * fastroot(amp, 2) * alpha;
+      b_[0] = amp * ((amp + 1.) - (amp - 1.) * cos_omega0 + two_alpha_sqrt_amp);
+      b_[1] = 2 * amp * ((amp - 1) - (amp + 1) * cos_omega0);
+      b_[2] = b_[0] - amp * 2 * two_alpha_sqrt_amp;
+         // = amp * ((amp + 1) - (amp - 1) * cos_omega0 - two_alpha_sqrt_amp);
+      a_[0] = (amp + 1) + (amp - 1) * cos_omega0 + two_alpha_sqrt_amp;
+      a_[1] = -2 * ((amp - 1) + (amp + 1) * cos_omega0);
+      a_[2] = a_[0] - 2 * two_alpha_sqrt_amp;
+      break;
+
+  case highShelf :
+      two_alpha_sqrt_amp = 2. * fastroot(amp, 2) * alpha;
+      b_[0] = amp * ((amp + 1.) + (amp - 1.) * cos_omega0 + two_alpha_sqrt_amp);
+      b_[1] = -2 * amp * ((amp - 1) + (amp + 1) * cos_omega0);    
+      b_[2] = b_[0] - amp * 2 * two_alpha_sqrt_amp;
+      a_[0] = (amp + 1) - (amp - 1) * cos_omega0 + two_alpha_sqrt_amp;
+      a_[1] = 2 * ((amp - 1) - (amp + 1) * cos_omega0);
+      a_[2] = a_[0] - 2 * two_alpha_sqrt_amp;
+      break;
+
+    }
+
 
     param_changed_ = false;
   }
